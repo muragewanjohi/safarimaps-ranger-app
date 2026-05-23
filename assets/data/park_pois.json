@@ -1,0 +1,46 @@
+{
+  "default": {
+    "center": { "lat": -1.2921, "lng": 35.5739 },
+    "pois": [
+      { "title": "Main Gate", "lat": -1.2921, "lng": 35.5739 },
+      { "title": "Watering Hole", "lat": -1.3050, "lng": 35.5800 },
+      { "title": "Ranger Station", "lat": -1.2800, "lng": 35.5600 }
+    ],
+    "routes": [
+      [
+        { "lat": -1.2921, "lng": 35.5739 },
+        { "lat": -1.3050, "lng": 35.5800 },
+        { "lat": -1.2800, "lng": 35.5600 }
+      ]
+    ]
+  },
+  "3467cff0-ca7d-4c6c-ad28-2d202f2372ce": {
+    "center": { "lat": -1.5053, "lng": 35.1442 },
+    "pois": [
+      { "title": "Sekenani Gate", "lat": -1.5053, "lng": 35.1442 },
+      { "title": "Mara River", "lat": -1.4900, "lng": 35.1500 },
+      { "title": "Lookout Hill", "lat": -1.5200, "lng": 35.1300 }
+    ],
+    "routes": [
+      [
+        { "lat": -1.5053, "lng": 35.1442 },
+        { "lat": -1.4900, "lng": 35.1500 }
+      ]
+    ]
+  },
+  "0dba0933-f39f-4c78-a943-45584f383d20": {
+    "center": { "lat": -1.3733, "lng": 36.8580 },
+    "pois": [
+      { "title": "Main Gate", "lat": -1.3733, "lng": 36.8580 },
+      { "title": "Ivory Burning Site", "lat": -1.3650, "lng": 36.8500 }
+    ],
+    "routes": []
+  },
+  "dc9b8bdc-7e14-4219-a35a-0ab1fb0a4513": {
+    "center": { "lat": 0.0500, "lng": 37.9000 },
+    "pois": [
+      { "title": "Murera Gate", "lat": 0.0500, "lng": 37.9000 }
+    ],
+    "routes": []
+  }
+}

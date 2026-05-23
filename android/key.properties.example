@@ -1,0 +1,8 @@
+# Copy to key.properties and fill in after downloading the upload keystore from EAS.
+# See README.md "Release signing" for instructions.
+#
+# storeFile path is relative to android/app/ unless absolute.
+storePassword=your-keystore-password
+keyPassword=your-key-password
+keyAlias=your-key-alias
+storeFile=../upload-keystore.jks
