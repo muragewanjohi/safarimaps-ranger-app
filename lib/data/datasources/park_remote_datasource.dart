@@ -12,7 +12,7 @@ class ParkRemoteDataSource {
     if (_client == null) return _fallbackParks();
 
     try {
-      final data = await _client!.from('parks').select().order('name');
+      final data = await _client.from('parks').select().order('name');
       final parks = (data as List)
           .map((e) => ParkModel.fromJson(Map<String, dynamic>.from(e)))
           .toList();
@@ -32,7 +32,7 @@ class ParkRemoteDataSource {
     }
 
     try {
-      final data = await _client!
+      final data = await _client
           .from('parks')
           .select()
           .eq('id', id)
@@ -58,7 +58,7 @@ class ParkRemoteDataSource {
     if (_client == null) return [];
 
     try {
-      final data = await _client!
+      final data = await _client
           .from('park_entries')
           .select()
           .eq('park_id', parkId)

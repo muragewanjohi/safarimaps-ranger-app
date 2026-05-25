@@ -12,6 +12,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../park/bloc/park_cubit.dart';
 import '../../shared/widgets/park_map_card.dart';
 import '../../shared/widgets/ranger_app_bar.dart';
+import '../../../data/repositories/data_repository.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -40,8 +41,35 @@ class _MapScreenState extends State<MapScreen> {
     _loadLocations();
   }
 
+  LatLng? _parseCoordinates(String coords) {
+    try {
+      final parts = coords.split(',');
+      if (parts.length != 2) return null;
+
+      final latPart = parts[0].trim();
+      final lngPart = parts[1].trim();
+
+      final latMatch = RegExp(r'(-?\d+\.?\d*)').firstMatch(latPart);
+      final lngMatch = RegExp(r'(-?\d+\.?\d*)').firstMatch(lngPart);
+
+      if (latMatch == null || lngMatch == null) return null;
+
+      var lat = double.parse(latMatch.group(1)!);
+      var lng = double.parse(lngMatch.group(1)!);
+
+      if (latPart.toUpperCase().contains('S') && lat > 0) lat = -lat;
+      if (lngPart.toUpperCase().contains('W') && lng > 0) lng = -lng;
+
+      return LatLng(lat, lng);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _loadLocations() async {
     final parkId = getIt<ParkCubit>().state.selectedPark?.id ?? 'default';
+    final List<MapLocationItem> allLoaded = [];
+
     try {
       final jsonStr =
           await rootBundle.loadString('assets/data/park_pois.json');
@@ -50,18 +78,39 @@ class _MapScreenState extends State<MapScreen> {
           data['default'] as Map<String, dynamic>;
       final pois = parkData['pois'] as List<dynamic>? ?? [];
 
-      setState(() {
-        _locations = pois.map((p) {
-          final poi = p as Map<String, dynamic>;
-          return MapLocationItem(
-            title: poi['title'] as String? ?? 'Location',
-            lat: (poi['lat'] as num).toDouble(),
-            lng: (poi['lng'] as num).toDouble(),
-            category: poi['category'] as String? ?? 'Wildlife',
-          );
-        }).toList();
-      });
+      allLoaded.addAll(pois.map((p) {
+        final poi = p as Map<String, dynamic>;
+        return MapLocationItem(
+          title: poi['title'] as String? ?? 'Location',
+          lat: (poi['lat'] as num).toDouble(),
+          lng: (poi['lng'] as num).toDouble(),
+          category: poi['category'] as String? ?? 'Wildlife',
+        );
+      }));
     } catch (_) {}
+
+    try {
+      final response = await getIt<DataRepository>().getAllLocations(parkId: parkId);
+      if (response.success && response.data != null) {
+        for (final item in response.data!) {
+          final latLng = _parseCoordinates(item.coordinates);
+          if (latLng != null) {
+            if (!allLoaded.any((l) => l.title == item.title && l.category == item.category)) {
+              allLoaded.add(MapLocationItem(
+                title: item.title,
+                lat: latLng.latitude,
+                lng: latLng.longitude,
+                category: item.category,
+              ));
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    setState(() {
+      _locations = allLoaded;
+    });
   }
 
   List<MapLocationItem> get _filteredLocations {
@@ -118,7 +167,7 @@ class _MapScreenState extends State<MapScreen> {
           Padding(
             padding: const EdgeInsets.all(16),
             child: DropdownButtonFormField<String>(
-              value: _filter,
+              initialValue: _filter,
               decoration: const InputDecoration(labelText: 'Filter'),
               items: _filters
                   .map((f) => DropdownMenuItem(value: f, child: Text(f)))

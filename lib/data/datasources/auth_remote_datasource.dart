@@ -16,7 +16,7 @@ class AuthRemoteDataSource {
     }
 
     try {
-      final response = await _client!.auth.signInWithPassword(
+      final response = await _client.auth.signInWithPassword(
         email: credentials.email,
         password: credentials.password,
       );
@@ -53,7 +53,7 @@ class AuthRemoteDataSource {
           .join()
           .toUpperCase();
 
-      final response = await _client!.auth.signUp(
+      final response = await _client.auth.signUp(
         email: credentials.email,
         password: credentials.password,
         data: {
@@ -73,7 +73,7 @@ class AuthRemoteDataSource {
 
       var profile = await _fetchProfile(response.user!.id);
       if (profile == null) {
-        await _client!.rpc('create_user_profile', params: {
+        await _client.rpc('create_user_profile', params: {
           'user_id': response.user!.id,
           'user_name': credentials.name,
           'user_email': credentials.email,
@@ -109,7 +109,7 @@ class AuthRemoteDataSource {
     }
 
     try {
-      await _client!.auth.signOut();
+      await _client.auth.signOut();
       return const AuthResult(success: true, message: 'Logged out successfully');
     } on supabase.AuthException catch (e) {
       return AuthResult(success: false, error: e.message);
@@ -119,7 +119,7 @@ class AuthRemoteDataSource {
   UserModel? getLocalUser() {
     if (_client == null) return null;
 
-    final user = _client!.auth.currentUser;
+    final user = _client.auth.currentUser;
     if (user == null) return null;
 
     return UserModel.fromAuthUser(user);
@@ -149,12 +149,10 @@ class AuthRemoteDataSource {
 
     try {
       var profile = await _fetchProfile(userId);
-      if (profile == null) {
-        profile = await _createProfileForExistingUser(userId);
-      }
+      profile ??= await _createProfileForExistingUser(userId);
       if (profile == null) return null;
 
-      final email = _client!.auth.currentUser?.email;
+      final email = _client.auth.currentUser?.email;
       return UserModel.fromProfile(profile, email: email);
     } catch (_) {
       return null;
@@ -162,7 +160,8 @@ class AuthRemoteDataSource {
   }
 
   Future<Map<String, dynamic>?> _fetchProfile(String userId) async {
-    final result = await _client!
+    if (_client == null) return null;
+    final result = await _client
         .from('profiles')
         .select()
         .eq('id', userId)
@@ -183,10 +182,10 @@ class AuthRemoteDataSource {
       if (_client == null) return;
 
       try {
-        final session = _client!.auth.currentSession;
+        final session = _client.auth.currentSession;
         if (session == null || !session.isExpired) return;
 
-        await _client!.auth.refreshSession().timeout(
+        await _client.auth.refreshSession().timeout(
           const Duration(seconds: 10),
         );
       } catch (_) {}
@@ -196,10 +195,11 @@ class AuthRemoteDataSource {
   Future<Map<String, dynamic>?> _createProfileForExistingUser(
     String userId,
   ) async {
-    final user = _client!.auth.currentUser;
+    if (_client == null) return null;
+    final user = _client.auth.currentUser;
     if (user == null) return null;
 
-    await _client!.rpc('create_user_profile', params: {
+    await _client.rpc('create_user_profile', params: {
       'user_id': userId,
       'user_name': user.userMetadata?['name'] ?? 'New User',
       'user_email': user.email ?? '',
@@ -213,7 +213,7 @@ class AuthRemoteDataSource {
 
   Future<bool> isAuthenticated() async {
     if (_client == null) return false;
-    return _client!.auth.currentSession != null;
+    return _client.auth.currentSession != null;
   }
 
   Stream<supabase.AuthState> get authStateChanges =>
@@ -225,7 +225,7 @@ class AuthRemoteDataSource {
     }
 
     try {
-      await _client!.auth.resetPasswordForEmail(
+      await _client.auth.resetPasswordForEmail(
         email,
         redirectTo: AppConfig.passwordResetRedirect,
       );

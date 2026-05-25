@@ -34,19 +34,20 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   void _handleAuthStateChange(supabase.AuthState authState) {
     final event = authState.event;
     final session = authState.session;
+    final user = session?.user;
 
     switch (event) {
       case supabase.AuthChangeEvent.initialSession:
-        if (session?.user != null) {
-          add(AuthSessionUpdated(UserModel.fromAuthUser(session!.user!)));
+        if (user != null) {
+          add(AuthSessionUpdated(UserModel.fromAuthUser(user)));
         } else if (!state.sessionResolved) {
           add(const AuthSessionCleared());
         }
       case supabase.AuthChangeEvent.signedIn:
       case supabase.AuthChangeEvent.tokenRefreshed:
       case supabase.AuthChangeEvent.userUpdated:
-        if (session?.user != null) {
-          add(AuthSessionUpdated(UserModel.fromAuthUser(session!.user!)));
+        if (user != null) {
+          add(AuthSessionUpdated(UserModel.fromAuthUser(user)));
         }
       case supabase.AuthChangeEvent.signedOut:
         add(const AuthSessionCleared());

@@ -7,6 +7,7 @@ class DashboardState extends Equatable {
     this.emergencyAlerts = const [],
     this.recentIncidents = const [],
     this.recentLocations = const [],
+    this.locationsByCategory = const {},
     this.isLoading = false,
     this.error,
     this.isOffline = false,
@@ -20,6 +21,7 @@ class DashboardState extends Equatable {
   final List<EmergencyAlert> emergencyAlerts;
   final List<IncidentSummary> recentIncidents;
   final List<LocationItem> recentLocations;
+  final Map<String, List<LocationItem>> locationsByCategory;
   final bool isLoading;
   final String? error;
   final bool isOffline;
@@ -31,6 +33,7 @@ class DashboardState extends Equatable {
     List<EmergencyAlert>? emergencyAlerts,
     List<IncidentSummary>? recentIncidents,
     List<LocationItem>? recentLocations,
+    Map<String, List<LocationItem>>? locationsByCategory,
     bool? isLoading,
     String? error,
     bool? isOffline,
@@ -42,6 +45,7 @@ class DashboardState extends Equatable {
       emergencyAlerts: emergencyAlerts ?? this.emergencyAlerts,
       recentIncidents: recentIncidents ?? this.recentIncidents,
       recentLocations: recentLocations ?? this.recentLocations,
+      locationsByCategory: locationsByCategory ?? this.locationsByCategory,
       isLoading: isLoading ?? this.isLoading,
       error: error,
       isOffline: isOffline ?? this.isOffline,
@@ -56,6 +60,7 @@ class DashboardState extends Equatable {
         emergencyAlerts,
         recentIncidents,
         recentLocations,
+        locationsByCategory,
         isLoading,
         error,
         isOffline,

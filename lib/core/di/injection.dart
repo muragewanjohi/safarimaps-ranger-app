@@ -50,7 +50,7 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton<ParkCubit>(
       () => ParkCubit(getIt<ParkRepository>()),
     )
-    ..registerFactory<DashboardCubit>(
+    ..registerLazySingleton<DashboardCubit>(
       () => DashboardCubit(getIt<DataRepository>()),
     )
     ..registerFactory<IncidentsCubit>(

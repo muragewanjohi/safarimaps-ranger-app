@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:io' show Platform;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/di/injection.dart';
 import '../../../core/theme/app_theme.dart';
@@ -22,6 +24,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  bool _viewAllEmergencies = false;
+  bool _viewAllIncidents = false;
+  bool _viewAllSightings = false;
+
   @override
   void initState() {
     super.initState();
@@ -158,33 +164,100 @@ class _HomeScreenState extends State<HomeScreen> {
                         ParkMapCard(parkId: parkState.selectedPark?.id),
                         if (state.stats != null) _StatsGrid(stats: state.stats!),
                         SectionHeader(title: 'Visitor emergencies'),
-                        if (state.emergencyAlerts.isEmpty)
-                          const EmptySectionMessage(
-                            icon: Icons.emergency_outlined,
-                            message: 'No active emergencies',
-                          )
-                        else
-                          ...state.emergencyAlerts.map(_EmergencyCard.new),
+                        _buildFilterToggle(
+                          value: _viewAllEmergencies,
+                          activeText: 'Showing latest 5 emergency alerts',
+                          inactiveText: 'Active in the last 48 hours',
+                          onChanged: (v) => setState(() => _viewAllEmergencies = v),
+                        ),
+                        const SizedBox(height: 6),
+                        (() {
+                          final now = DateTime.now();
+                          final filtered = _viewAllEmergencies
+                              ? state.emergencyAlerts.take(5).toList()
+                              : state.emergencyAlerts
+                                  .where((a) =>
+                                      a.createdAt == null ||
+                                      now.difference(a.createdAt!).inHours <= 48)
+                                  .take(5)
+                                  .toList();
+                          if (filtered.isEmpty) {
+                            return const EmptySectionMessage(
+                              icon: Icons.emergency_outlined,
+                              message: 'No active emergencies',
+                            );
+                          }
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: filtered.map(_EmergencyCard.new).toList(),
+                          );
+                        })(),
                         SectionHeader(
                           title: 'Recent incidents',
                           action: 'View all',
                           onAction: () => context.go('/reports'),
                         ),
-                        if (state.recentIncidents.isEmpty)
-                          const EmptySectionMessage(
-                            icon: Icons.report_outlined,
-                            message: 'No recent incidents',
-                          )
-                        else
-                          ...state.recentIncidents.map(_IncidentTile.new),
-                        SectionHeader(title: 'Recent locations'),
-                        if (state.recentLocations.isEmpty)
-                          const EmptySectionMessage(
-                            icon: Icons.place_outlined,
-                            message: 'No recent locations logged',
-                          )
-                        else
-                          ...state.recentLocations.map(_LocationTile.new),
+                        _buildFilterToggle(
+                          value: _viewAllIncidents,
+                          activeText: 'Showing latest 5 incident reports',
+                          inactiveText: 'Logged in the last 7 days',
+                          onChanged: (v) => setState(() => _viewAllIncidents = v),
+                        ),
+                        const SizedBox(height: 6),
+                        (() {
+                          final now = DateTime.now();
+                          final filtered = _viewAllIncidents
+                              ? state.recentIncidents.take(5).toList()
+                              : state.recentIncidents
+                                  .where((i) =>
+                                      i.createdAt == null ||
+                                      now.difference(i.createdAt!).inDays <= 7)
+                                  .take(5)
+                                  .toList();
+                          if (filtered.isEmpty) {
+                            return const EmptySectionMessage(
+                              icon: Icons.report_outlined,
+                              message: 'No recent incidents',
+                            );
+                          }
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: filtered.map(_IncidentTile.new).toList(),
+                          );
+                        })(),
+                        SectionHeader(
+                          title: 'Recent sightings',
+                          action: 'View all',
+                          onAction: () => context.go('/map'),
+                        ),
+                        _buildFilterToggle(
+                          value: _viewAllSightings,
+                          activeText: 'Showing latest 5 recent sightings',
+                          inactiveText: 'Logged in the last 3 days',
+                          onChanged: (v) => setState(() => _viewAllSightings = v),
+                        ),
+                        const SizedBox(height: 6),
+                        (() {
+                          final now = DateTime.now();
+                          final filtered = _viewAllSightings
+                              ? state.recentLocations.take(5).toList()
+                              : state.recentLocations
+                                  .where((l) =>
+                                      l.createdAt == null ||
+                                      now.difference(l.createdAt!).inDays <= 3)
+                                  .take(5)
+                                  .toList();
+                          if (filtered.isEmpty) {
+                            return const EmptySectionMessage(
+                              icon: Icons.place_outlined,
+                              message: 'No recent sightings logged',
+                            );
+                          }
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: filtered.map(_LocationTile.new).toList(),
+                          );
+                        })(),
                         SectionHeader(title: 'Quick actions'),
                         _QuickActions(
                           onAddReport: () => context.push('/add-report'),
@@ -195,6 +268,70 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildFilterToggle({
+    required bool value,
+    required String activeText,
+    required String inactiveText,
+    required ValueChanged<bool> onChanged,
+  }) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                Icon(
+                  value ? Icons.history_rounded : Icons.history_toggle_off_rounded,
+                  size: 14,
+                  color: Colors.grey.shade600,
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    value ? activeText : inactiveText,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.grey.shade600,
+                      fontSize: 12,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'View all',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: value ? AppTheme.primaryColor : Colors.grey.shade700,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
+                ),
+              ),
+              const SizedBox(width: 4),
+              SizedBox(
+                height: 24,
+                width: 40,
+                child: Transform.scale(
+                  scale: 0.75,
+                  child: Switch.adaptive(
+                    value: value,
+                    onChanged: onChanged,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -530,8 +667,38 @@ class _LocationTile extends StatelessWidget {
 
   final LocationItem location;
 
+  Future<void> _openNavigation(BuildContext context) async {
+    try {
+      final parts = location.coordinates.split(',');
+      if (parts.length != 2) return;
+
+      final latPart = parts[0].trim();
+      final lngPart = parts[1].trim();
+
+      final latMatch = RegExp(r'(-?\d+\.?\d*)').firstMatch(latPart);
+      final lngMatch = RegExp(r'(-?\d+\.?\d*)').firstMatch(lngPart);
+
+      if (latMatch == null || lngMatch == null) return;
+
+      var lat = double.parse(latMatch.group(1)!);
+      var lng = double.parse(lngMatch.group(1)!);
+
+      if (latPart.toUpperCase().contains('S') && lat > 0) lat = -lat;
+      if (lngPart.toUpperCase().contains('W') && lng > 0) lng = -lng;
+
+      final url = Platform.isIOS
+          ? Uri.parse('http://maps.apple.com/?daddr=$lat,$lng&dirflg=d')
+          : Uri.parse('google.navigation:q=$lat,$lng&mode=d');
+
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url);
+      }
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: ListTile(
@@ -552,9 +719,41 @@ class _LocationTile extends StatelessWidget {
           ),
         ),
         title: Text(location.title),
-        subtitle: Text(
-          '${location.category}${location.timeAgo != null ? ' • ${location.timeAgo}' : ''}',
+        subtitle: Text(location.category),
+        trailing: Container(
+          width: 80,
+          alignment: Alignment.centerRight,
+          child: InkWell(
+            onTap: () => _openNavigation(context),
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Icon(
+                    Icons.navigation_rounded,
+                    color: AppTheme.primaryColor,
+                    size: 20,
+                  ),
+                  const SizedBox(height: 4),
+                  if (location.timeAgo != null)
+                    Text(
+                      location.timeAgo!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.grey.shade600,
+                        fontSize: 10,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+            ),
+          ),
         ),
+        onTap: () => _openNavigation(context),
       ),
     );
   }

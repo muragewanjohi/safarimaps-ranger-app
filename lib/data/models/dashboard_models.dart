@@ -26,6 +26,7 @@ class EmergencyAlert {
     required this.timeAgo,
     required this.status,
     this.urgent = false,
+    this.createdAt,
   });
 
   final dynamic id;
@@ -36,6 +37,7 @@ class EmergencyAlert {
   final String timeAgo;
   final String status;
   final bool urgent;
+  final DateTime? createdAt;
 }
 
 class IncidentSummary {
@@ -47,6 +49,7 @@ class IncidentSummary {
     required this.timeAgo,
     required this.severity,
     required this.status,
+    this.createdAt,
   });
 
   final dynamic id;
@@ -56,6 +59,7 @@ class IncidentSummary {
   final String timeAgo;
   final String severity;
   final String status;
+  final DateTime? createdAt;
 }
 
 class LocationItem {
@@ -78,6 +82,7 @@ class LocationItem {
     this.count,
     this.location,
     this.photos,
+    this.createdAt,
   });
 
   final dynamic id;
@@ -98,6 +103,7 @@ class LocationItem {
   final String? count;
   final String? location;
   final List<String>? photos;
+  final DateTime? createdAt;
 }
 
 class IncidentModel {
@@ -184,7 +190,7 @@ class IncidentModel {
       'medical_condition': medicalCondition,
       'location': location,
       'reported_by': reportedBy,
-      if (parkId != null) 'park_id': parkId,
+      'park_id': ?parkId,
     };
   }
 }

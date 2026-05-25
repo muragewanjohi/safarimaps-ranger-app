@@ -62,19 +62,19 @@ class DataRemoteDataSource {
       final counts = await Future.wait([
         _count('incidents', filters: {
           'status': 'Reported',
-          if (parkId != null) 'park_id': parkId,
+          'park_id': ?parkId,
         }),
         _count('locations', filters: {
-          if (parkId != null) 'park_id': parkId,
+          'park_id': ?parkId,
         }),
         _count('reports'),
         _count('locations', filters: {
           'category': 'Wildlife',
-          if (parkId != null) 'park_id': parkId,
+          'park_id': ?parkId,
         }),
         _count('locations', filters: {
           'category': 'Hotel',
-          if (parkId != null) 'park_id': parkId,
+          'park_id': ?parkId,
         }),
         _count('profiles', filters: {
           'role': 'Ranger',
@@ -142,6 +142,7 @@ class DataRemoteDataSource {
           severity: incident['severity'] as String? ?? 'High',
           status: incident['status'] as String? ?? 'Active',
           urgent: incident['severity'] == 'Critical',
+          createdAt: DateTime.tryParse(incident['created_at'] as String? ?? ''),
         );
       }).toList();
 
@@ -178,6 +179,7 @@ class DataRemoteDataSource {
           timeAgo: MockData.getTimeAgo(incident['created_at'] as String?),
           severity: incident['severity'] as String? ?? 'Medium',
           status: incident['status'] as String? ?? 'Reported',
+          createdAt: DateTime.tryParse(incident['created_at'] as String? ?? ''),
         );
       }).toList();
 
@@ -217,10 +219,96 @@ class DataRemoteDataSource {
           timeAgo: MockData.getTimeAgo(location['created_at'] as String?),
           icon: MockData.iconForCategory(category),
           iconColor: MockData.colorForCategory(category),
+          createdAt: DateTime.tryParse(location['created_at'] as String? ?? ''),
         );
       }).toList();
 
       return ApiResponse(success: true, data: data);
+    } catch (e) {
+      return ApiResponse(success: false, error: e.toString());
+    }
+  }
+
+  Future<ApiResponse<List<LocationItem>>> getAllLocations({String? parkId}) async {
+    if (useMockData) {
+      return const ApiResponse(success: true, data: []);
+    }
+
+    try {
+      var query = _client!.from('locations').select();
+
+      if (parkId != null) {
+        query = query.eq('park_id', parkId);
+      }
+
+      final locations = await query.order('created_at', ascending: false);
+      final data = (locations as List).map((location) {
+        final category = location['category'] as String? ?? 'Wildlife';
+        return LocationItem(
+          id: location['id'],
+          title: location['title'] as String? ??
+              location['name'] as String? ??
+              'Location',
+          category: category,
+          description: location['description'] as String? ?? '',
+          coordinates: location['coordinates'] as String? ?? '',
+          reportedBy: 'Ranger',
+          timeAgo: MockData.getTimeAgo(location['created_at'] as String?),
+          icon: MockData.iconForCategory(category),
+          iconColor: MockData.colorForCategory(category),
+        );
+      }).toList();
+
+      return ApiResponse(success: true, data: data);
+    } catch (e) {
+      return ApiResponse(success: false, error: e.toString());
+    }
+  }
+
+  Future<ApiResponse<Map<String, List<LocationItem>>>> getRecentLocationsByCategory({
+    String? parkId,
+  }) async {
+    if (useMockData) {
+      await MockData.delay();
+      return const ApiResponse(
+        success: true,
+        data: {'Wildlife': MockData.recentLocations},
+      );
+    }
+
+    try {
+      var query = _client!.from('locations').select();
+
+      if (parkId != null) {
+        query = query.eq('park_id', parkId);
+      }
+
+      final locations = await query.order('created_at', ascending: false);
+
+      final Map<String, List<LocationItem>> grouped = {};
+      for (final location in (locations as List)) {
+        final category = location['category'] as String? ?? 'Wildlife';
+        final item = LocationItem(
+          id: location['id'],
+          title: location['title'] as String? ??
+              location['name'] as String? ??
+              'Location',
+          category: category,
+          description: location['description'] as String? ?? '',
+          coordinates: location['coordinates'] as String? ?? '',
+          reportedBy: 'Ranger',
+          timeAgo: MockData.getTimeAgo(location['created_at'] as String?),
+          icon: MockData.iconForCategory(category),
+          iconColor: MockData.colorForCategory(category),
+        );
+
+        grouped.putIfAbsent(category, () => []);
+        if (grouped[category]!.length < 5) {
+          grouped[category]!.add(item);
+        }
+      }
+
+      return ApiResponse(success: true, data: grouped);
     } catch (e) {
       return ApiResponse(success: false, error: e.toString());
     }
@@ -293,11 +381,12 @@ class DataRemoteDataSource {
         parkId: parkId,
       );
 
-      final result = await _client!
+      final result = await _client
           .from('incidents')
           .insert(insertData)
           .select()
-          .single();
+          .single()
+          .timeout(const Duration(seconds: 15));
 
       return ApiResponse(
         success: true,
@@ -314,14 +403,32 @@ class DataRemoteDataSource {
   }) async {
     if (useMockData) {
       await MockData.delay();
+      final dbCategory = _mapCategory(location.category);
+      String titleText = '';
+      if (location.category == 'Attractions' &&
+          location.attractionName != null &&
+          location.attractionName!.trim().isNotEmpty) {
+        titleText = location.attractionName!.trim();
+      } else if (location.category == 'Hotels' &&
+          location.hotelName != null &&
+          location.hotelName!.trim().isNotEmpty) {
+        titleText = location.hotelName!.trim();
+      }
+
+      if (titleText.isEmpty) {
+        titleText = location.subcategory.trim();
+      }
+
+      if (titleText.isEmpty) {
+        titleText = dbCategory;
+      }
+
       return ApiResponse(
         success: true,
         data: LocationItem(
           id: DateTime.now().millisecondsSinceEpoch,
-          title: location.attractionName ??
-              location.hotelName ??
-              location.subcategory,
-          category: _mapCategory(location.category),
+          title: titleText,
+          category: dbCategory,
           description: location.description,
           coordinates: location.coordinates,
           reportedBy: 'Current User',
@@ -338,7 +445,7 @@ class DataRemoteDataSource {
         return const ApiResponse(success: false, error: 'User not authenticated');
       }
 
-      final profile = await _client!
+      final profile = await _client
           .from('profiles')
           .select('role')
           .eq('id', user.id)
@@ -354,7 +461,7 @@ class DataRemoteDataSource {
 
       var targetParkId = parkId;
       if (targetParkId == null) {
-        final parks = await _client!.from('parks').select('id').limit(1);
+        final parks = await _client.from('parks').select('id').limit(1);
         if ((parks as List).isEmpty) {
           return const ApiResponse(success: false, error: 'No parks available');
         }
@@ -362,12 +469,27 @@ class DataRemoteDataSource {
       }
 
       final dbCategory = _mapCategory(location.category);
-      final title = location.attractionName ??
-          location.hotelName ??
-          location.subcategory;
+      String titleText = '';
+      if (location.category == 'Attractions' &&
+          location.attractionName != null &&
+          location.attractionName!.trim().isNotEmpty) {
+        titleText = location.attractionName!.trim();
+      } else if (location.category == 'Hotels' &&
+          location.hotelName != null &&
+          location.hotelName!.trim().isNotEmpty) {
+        titleText = location.hotelName!.trim();
+      }
 
-      final result = await _client!.from('locations').insert({
-        'title': title,
+      if (titleText.isEmpty) {
+        titleText = location.subcategory.trim();
+      }
+
+      if (titleText.isEmpty) {
+        titleText = dbCategory;
+      }
+
+      final result = await _client.from('locations').insert({
+        'title': titleText,
         'category': dbCategory,
         'subcategory': location.subcategory,
         'description': location.description,
@@ -378,24 +500,40 @@ class DataRemoteDataSource {
         'best_time_to_visit': location.bestTimeToVisit,
         'reported_by': user.id,
         'park_id': targetParkId,
-      }).select().single();
+      }).select().single().timeout(const Duration(seconds: 15));
 
-      for (final photoPath in location.photos) {
-        final url = await _uploadPhoto('location-photos', photoPath);
-        if (url != null) {
-          await _client!.from('location_photos').insert({
-            'location_id': result['id'],
+      final locationId = result['id'] as String;
+
+      final photoErrors = <String>[];
+      for (var i = 0; i < location.photos.length; i++) {
+        final photoPath = location.photos[i];
+        final url = await _uploadPhoto(
+          'location-photos',
+          photoPath,
+          objectPath: '$locationId/${_uuid.v4()}.jpg',
+        );
+        if (url == null) {
+          photoErrors.add('Photo ${i + 1} failed to upload');
+          continue;
+        }
+
+        try {
+          await _client.from('location_photos').insert({
+            'location_id': locationId,
             'photo_url': url,
+            'taken_by': user.id,
             'photo_name': photoPath.split(Platform.pathSeparator).last,
-          });
+          }).timeout(const Duration(seconds: 15));
+        } catch (e) {
+          photoErrors.add('Photo ${i + 1} failed to save: $e');
         }
       }
 
       return ApiResponse(
         success: true,
         data: LocationItem(
-          id: result['id'],
-          title: title,
+          id: locationId,
+          title: titleText,
           category: dbCategory,
           description: location.description,
           coordinates: location.coordinates,
@@ -404,22 +542,30 @@ class DataRemoteDataSource {
           iconColor: MockData.colorForCategory(dbCategory),
           timeAgo: 'Just now',
         ),
+        message: photoErrors.isEmpty
+            ? null
+            : 'Location saved, but some photos could not be attached.',
+        error: photoErrors.isEmpty ? null : photoErrors.join('\n'),
       );
     } catch (e) {
       return ApiResponse(success: false, error: e.toString());
     }
   }
 
-  Future<String?> _uploadPhoto(String bucket, String filePath) async {
+  Future<String?> _uploadPhoto(
+    String bucket,
+    String filePath, {
+    String? objectPath,
+  }) async {
     try {
       final bytes = await File(filePath).readAsBytes();
-      final fileName = '${_uuid.v4()}.jpg';
+      final fileName = objectPath ?? '${_uuid.v4()}.jpg';
       await _client!.storage.from(bucket).uploadBinary(
             fileName,
             Uint8List.fromList(bytes),
             fileOptions: const FileOptions(contentType: 'image/jpeg'),
-          );
-      return _client!.storage.from(bucket).getPublicUrl(fileName);
+          ).timeout(const Duration(seconds: 15));
+      return _client.storage.from(bucket).getPublicUrl(fileName);
     } catch (_) {
       return null;
     }

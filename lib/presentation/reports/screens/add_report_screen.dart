@@ -60,7 +60,7 @@ class _AddReportScreenState extends State<AddReportScreen> {
     if (_photos.length >= 3) return;
     final picker = ImagePicker();
     final photo = await picker.pickImage(source: ImageSource.gallery);
-    if (photo != null) {
+    if (photo != null && mounted) {
       setState(() => _photos.add(photo.path));
       context.read<AddReportCubit>().updateField(photos: List.from(_photos));
     }
@@ -109,99 +109,134 @@ class _AddReportScreenState extends State<AddReportScreen> {
       appBar: AppBar(title: const Text('New Incident Report')),
       body: BlocBuilder<AddReportCubit, AddReportState>(
         builder: (context, state) {
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  controller: _titleController,
-                  decoration: const InputDecoration(labelText: 'Title *'),
-                ),
-                const SizedBox(height: 12),
-                _dropdown('Category', _category, _categories,
-                    (v) => setState(() => _category = v!)),
-                _dropdown('Severity', _severity, _severities,
-                    (v) => setState(() => _severity = v!)),
-                _dropdown('Status', _status, _statuses,
-                    (v) => setState(() => _status = v!)),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _descriptionController,
-                  maxLines: 4,
-                  decoration: const InputDecoration(labelText: 'Description *'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _locationController,
-                  decoration: const InputDecoration(labelText: 'Location'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _touristsController,
-                  keyboardType: TextInputType.number,
-                  decoration:
-                      const InputDecoration(labelText: 'Tourists Affected'),
-                ),
-                TextField(
-                  controller: _operatorController,
-                  decoration: const InputDecoration(labelText: 'Tour Operator'),
-                ),
-                TextField(
-                  controller: _transportController,
-                  decoration: const InputDecoration(labelText: 'Transport'),
-                ),
-                TextField(
-                  controller: _medicalController,
-                  decoration:
-                      const InputDecoration(labelText: 'Medical Condition'),
-                ),
-                const SizedBox(height: 16),
-                SafariMapView(
-                  mode: MapViewMode.select,
-                  initialRegion: _selectedPoint,
-                  onLocationSelected: (point) {
-                    setState(() => _selectedPoint = point);
-                    context.read<AddReportCubit>().updateField(
-                          coordinates: getIt<LocationService>()
-                              .formatCoordinatesDisplay(
-                            point.latitude,
-                            point.longitude,
-                          ),
-                        );
-                  },
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
+          return Stack(
+            children: [
+              SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    ..._photos.map(
-                      (p) => Chip(
-                        label: Text(p.split('/').last),
-                        onDeleted: () => setState(() => _photos.remove(p)),
-                      ),
+                    TextField(
+                      controller: _titleController,
+                      decoration: const InputDecoration(labelText: 'Title *'),
                     ),
-                    if (_photos.length < 3)
-                      ActionChip(
-                        avatar: const Icon(Icons.photo, size: 18),
-                        label: const Text('Add Photo'),
-                        onPressed: _pickPhoto,
+                    const SizedBox(height: 12),
+                    _dropdown('Category', _category, _categories,
+                        (v) => setState(() => _category = v!)),
+                    _dropdown('Severity', _severity, _severities,
+                        (v) => setState(() => _severity = v!)),
+                    _dropdown('Status', _status, _statuses,
+                        (v) => setState(() => _status = v!)),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _descriptionController,
+                      maxLines: 4,
+                      decoration: const InputDecoration(labelText: 'Description *'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _locationController,
+                      decoration: const InputDecoration(labelText: 'Location'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _touristsController,
+                      keyboardType: TextInputType.number,
+                      decoration:
+                          const InputDecoration(labelText: 'Tourists Affected'),
+                    ),
+                    TextField(
+                      controller: _operatorController,
+                      decoration: const InputDecoration(labelText: 'Tour Operator'),
+                    ),
+                    TextField(
+                      controller: _transportController,
+                      decoration: const InputDecoration(labelText: 'Transport'),
+                    ),
+                    TextField(
+                      controller: _medicalController,
+                      decoration:
+                          const InputDecoration(labelText: 'Medical Condition'),
+                    ),
+                    const SizedBox(height: 16),
+                    SafariMapView(
+                      mode: MapViewMode.select,
+                      initialRegion: _selectedPoint,
+                      onLocationSelected: (point) {
+                        setState(() => _selectedPoint = point);
+                        context.read<AddReportCubit>().updateField(
+                              coordinates: getIt<LocationService>()
+                                  .formatCoordinatesDisplay(
+                                point.latitude,
+                                point.longitude,
+                              ),
+                            );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        ..._photos.map(
+                          (p) => Chip(
+                            label: Text(p.split('/').last),
+                            onDeleted: () => setState(() => _photos.remove(p)),
+                          ),
+                        ),
+                        if (_photos.length < 3)
+                          ActionChip(
+                            avatar: const Icon(Icons.photo, size: 18),
+                            label: const Text('Add Photo'),
+                            onPressed: _pickPhoto,
+                          ),
+                      ],
+                    ),
+                    if (state.error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Text(state.error!,
+                            style: const TextStyle(color: Colors.red)),
                       ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: state.isSubmitting ? null : _submit,
+                      child: Text(state.isSubmitting ? 'Submitting...' : 'Submit Report'),
+                    ),
                   ],
                 ),
-                if (state.error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Text(state.error!,
-                        style: const TextStyle(color: Colors.red)),
+              ),
+              if (state.isSubmitting)
+                Positioned.fill(
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    child: Center(
+                      child: Card(
+                        margin: const EdgeInsets.all(32),
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const CircularProgressIndicator(),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Submitting Report...',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Uploading details and photos...',
+                                style: Theme.of(context).textTheme.bodySmall,
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: state.isSubmitting ? null : _submit,
-                  child: Text(state.isSubmitting ? 'Submitting...' : 'Submit Report'),
                 ),
-              ],
-            ),
+            ],
           );
         },
       ),
@@ -217,7 +252,7 @@ class _AddReportScreenState extends State<AddReportScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: DropdownButtonFormField<String>(
-        value: value,
+        initialValue: value,
         decoration: InputDecoration(labelText: label),
         items: items
             .map((i) => DropdownMenuItem(value: i, child: Text(i)))

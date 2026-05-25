@@ -21,6 +21,12 @@ class DataRepository {
   Future<ApiResponse<List<LocationItem>>> getRecentLocations({String? parkId}) =>
       _dataSource.getRecentLocations(parkId: parkId);
 
+  Future<ApiResponse<List<LocationItem>>> getAllLocations({String? parkId}) =>
+      _dataSource.getAllLocations(parkId: parkId);
+
+  Future<ApiResponse<Map<String, List<LocationItem>>>> getRecentLocationsByCategory({String? parkId}) =>
+      _dataSource.getRecentLocationsByCategory(parkId: parkId);
+
   Future<ApiResponse<ImpactStats>> getImpactStats() =>
       _dataSource.getImpactStats();
 
