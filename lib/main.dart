@@ -2,12 +2,16 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'app.dart';
 import 'core/constants/app_constants.dart';
 import 'core/di/injection.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Programmatically configure the Mapbox access token for all map components
+  MapboxOptions.setAccessToken(AppConstants.mapboxPublicToken);
 
   await _initializeSupabase();
   await configureDependencies();

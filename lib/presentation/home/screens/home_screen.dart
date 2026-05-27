@@ -367,6 +367,32 @@ class _OfflineBanner extends StatelessWidget {
                   ),
             ),
           ),
+          if (pendingItems > 0) ...[
+            const SizedBox(width: 8),
+            TextButton.icon(
+              style: TextButton.styleFrom(
+                backgroundColor: const Color(0xFFD97706).withValues(alpha: 0.15),
+                foregroundColor: const Color(0xFF92400E),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () {
+                getIt<DashboardCubit>().syncPendingItems();
+              },
+              icon: const Icon(Icons.sync_rounded, size: 16),
+              label: const Text(
+                'Sync Now',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -686,12 +712,10 @@ class _LocationTile extends StatelessWidget {
       if (latPart.toUpperCase().contains('S') && lat > 0) lat = -lat;
       if (lngPart.toUpperCase().contains('W') && lng > 0) lng = -lng;
 
-      final url = Platform.isIOS
-          ? Uri.parse('http://maps.apple.com/?daddr=$lat,$lng&dirflg=d')
-          : Uri.parse('google.navigation:q=$lat,$lng&mode=d');
-
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url);
+      if (context.mounted) {
+        context.push(
+          '/directions?to_lat=$lat&to_lng=$lng&to_title=${Uri.encodeComponent(location.title)}&to_category=${Uri.encodeComponent(location.category)}',
+        );
       }
     } catch (_) {}
   }

@@ -27,6 +27,10 @@ class IncidentsCubit extends Cubit<IncidentsState> {
       ));
     }
   }
+
+  void setFilter(String filter) {
+    emit(state.copyWith(filter: filter));
+  }
 }
 
 class AddReportCubit extends Cubit<AddReportState> {
@@ -66,10 +70,79 @@ class AddReportCubit extends Cubit<AddReportState> {
     ));
   }
 
+  Future<void> loadForEdit(String? id) async {
+    if (id == null || id.isEmpty) {
+      emit(const AddReportState.initial());
+      return;
+    }
+    emit(state.copyWith(isLoading: true, isEditMode: true, incidentId: id, error: null));
+    try {
+      final incidentsResponse = await _dataRepository.getIncidents();
+      IncidentModel? incident;
+      if (incidentsResponse.success && incidentsResponse.data != null) {
+        for (final element in incidentsResponse.data!) {
+          if (element.id == id) {
+            incident = element;
+            break;
+          }
+        }
+      }
+      
+      if (incident == null) {
+        emit(state.copyWith(isLoading: false, error: 'Incident not found'));
+        return;
+      }
+
+      final notesResponse = await _dataRepository.getIncidentNotes(id);
+      final notes = notesResponse.success ? (notesResponse.data ?? []) : <IncidentNoteModel>[];
+
+      emit(state.copyWith(
+        isLoading: false,
+        isEditMode: true,
+        incidentId: id,
+        title: incident.title,
+        category: incident.category,
+        severity: incident.severity,
+        status: incident.status,
+        description: incident.description,
+        coordinates: incident.coordinates,
+        location: incident.location,
+        touristsAffected: incident.touristsAffected ?? 0,
+        tourOperator: incident.tourOperator,
+        transport: incident.transport,
+        medicalCondition: incident.medicalCondition,
+        tags: incident.tags,
+        photos: incident.photos,
+        notes: notes,
+      ));
+    } catch (e) {
+      emit(state.copyWith(isLoading: false, error: e.toString()));
+    }
+  }
+
+  Future<bool> addNote(String noteText) async {
+    final incidentId = state.incidentId;
+    if (incidentId == null || incidentId.isEmpty) return false;
+    emit(state.copyWith(isSubmittingNote: true, error: null));
+    final response = await _dataRepository.addIncidentNote(incidentId, noteText);
+    if (response.success && response.data != null) {
+      emit(state.copyWith(
+        isSubmittingNote: false,
+        notes: [...state.notes, response.data!],
+      ));
+      return true;
+    }
+    emit(state.copyWith(
+      isSubmittingNote: false,
+      error: response.error ?? 'Failed to add note',
+    ));
+    return false;
+  }
+
   Future<bool> submit({String? parkId}) async {
     emit(state.copyWith(isSubmitting: true, error: null));
     final incident = IncidentModel(
-      id: '',
+      id: state.incidentId ?? '',
       title: state.title,
       category: state.category,
       severity: state.severity,
@@ -84,14 +157,16 @@ class AddReportCubit extends Cubit<AddReportState> {
       tags: state.tags,
     );
 
-    final response = await _dataRepository.addIncident(
-      incident,
-      parkId: parkId,
-      photoPaths: state.photos,
-    );
+    final response = state.isEditMode
+        ? await _dataRepository.updateIncident(incident, parkId: parkId)
+        : await _dataRepository.addIncident(incident, parkId: parkId, photoPaths: state.photos);
 
     if (response.success) {
-      emit(state.copyWith(isSubmitting: false, isSuccess: true));
+      emit(state.copyWith(
+        isSubmitting: false,
+        isSuccess: true,
+        successMessage: response.message,
+      ));
       return true;
     }
 
@@ -121,6 +196,12 @@ class AddReportState extends Equatable {
     this.isSubmitting = false,
     this.isSuccess = false,
     this.error,
+    this.successMessage,
+    this.isEditMode = false,
+    this.incidentId,
+    this.notes = const [],
+    this.isLoading = false,
+    this.isSubmittingNote = false,
   });
 
   const AddReportState.initial() : this();
@@ -141,6 +222,12 @@ class AddReportState extends Equatable {
   final bool isSubmitting;
   final bool isSuccess;
   final String? error;
+  final String? successMessage;
+  final bool isEditMode;
+  final String? incidentId;
+  final List<IncidentNoteModel> notes;
+  final bool isLoading;
+  final bool isSubmittingNote;
 
   AddReportState copyWith({
     String? title,
@@ -159,6 +246,12 @@ class AddReportState extends Equatable {
     bool? isSubmitting,
     bool? isSuccess,
     String? error,
+    String? successMessage,
+    bool? isEditMode,
+    String? incidentId,
+    List<IncidentNoteModel>? notes,
+    bool? isLoading,
+    bool? isSubmittingNote,
   }) {
     return AddReportState(
       title: title ?? this.title,
@@ -177,6 +270,12 @@ class AddReportState extends Equatable {
       isSubmitting: isSubmitting ?? this.isSubmitting,
       isSuccess: isSuccess ?? this.isSuccess,
       error: error,
+      successMessage: successMessage ?? this.successMessage,
+      isEditMode: isEditMode ?? this.isEditMode,
+      incidentId: incidentId ?? this.incidentId,
+      notes: notes ?? this.notes,
+      isLoading: isLoading ?? this.isLoading,
+      isSubmittingNote: isSubmittingNote ?? this.isSubmittingNote,
     );
   }
 
@@ -198,5 +297,11 @@ class AddReportState extends Equatable {
         isSubmitting,
         isSuccess,
         error,
+        successMessage,
+        isEditMode,
+        incidentId,
+        notes,
+        isLoading,
+        isSubmittingNote,
       ];
 }

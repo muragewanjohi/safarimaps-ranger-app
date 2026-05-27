@@ -4,6 +4,7 @@ class AppConstants {
   static const String googleMapsIosKey = String.fromEnvironment(
     'GOOGLE_MAPS_IOS_API_KEY',
   );
+  static const String mapboxPublicToken = String.fromEnvironment('MAPBOX_PUBLIC_TOKEN');
 
   static const bool useMockData = bool.fromEnvironment(
     'USE_MOCK_DATA',

@@ -190,7 +190,31 @@ class IncidentModel {
       'medical_condition': medicalCondition,
       'location': location,
       'reported_by': reportedBy,
-      'park_id': ?parkId,
+      'park_id': parkId,
+    };
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'category': category,
+      'severity': severity,
+      'status': status,
+      'description': description,
+      'coordinates': coordinates,
+      'tourists_affected': touristsAffected,
+      'operator': tourOperator,
+      'contact_info': contactInfo,
+      'transport': transport,
+      'medical_condition': medicalCondition,
+      'tags': tags,
+      'photos': photos,
+      'created_at': createdAt,
+      'reported_by': reportedBy,
+      'reported_by_name': reportedByName,
+      'park_id': parkId,
+      'location': location,
     };
   }
 }
@@ -221,6 +245,38 @@ class NewLocationInput {
   final String? contact;
   final String? bestTimeToVisit;
   final List<String> photos;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'category': category,
+      'subcategory': subcategory,
+      'description': description,
+      'coordinates': coordinates,
+      'count': count,
+      'attractionName': attractionName,
+      'operatingHours': operatingHours,
+      'hotelName': hotelName,
+      'contact': contact,
+      'bestTimeToVisit': bestTimeToVisit,
+      'photos': photos,
+    };
+  }
+
+  factory NewLocationInput.fromJson(Map<String, dynamic> json) {
+    return NewLocationInput(
+      category: json['category'] as String? ?? 'Wildlife',
+      subcategory: json['subcategory'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      coordinates: json['coordinates'] as String? ?? '',
+      count: json['count'] as String?,
+      attractionName: json['attractionName'] as String?,
+      operatingHours: json['operatingHours'] as String?,
+      hotelName: json['hotelName'] as String?,
+      contact: json['contact'] as String?,
+      bestTimeToVisit: json['bestTimeToVisit'] as String?,
+      photos: (json['photos'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+    );
+  }
 }
 
 class ImpactStats {
@@ -327,4 +383,40 @@ class MapRegion {
   final double longitude;
   final double latitudeDelta;
   final double longitudeDelta;
+}
+
+class IncidentNoteModel {
+  const IncidentNoteModel({
+    required this.id,
+    required this.incidentId,
+    required this.note,
+    this.createdBy,
+    this.createdAt,
+  });
+
+  final String id;
+  final String incidentId;
+  final String note;
+  final String? createdBy;
+  final String? createdAt;
+
+  factory IncidentNoteModel.fromJson(Map<String, dynamic> json) {
+    return IncidentNoteModel(
+      id: json['id'] as String? ?? '',
+      incidentId: json['incident_id'] as String? ?? '',
+      note: json['note'] as String? ?? '',
+      createdBy: json['created_by_name'] as String? ?? json['created_by'] as String?,
+      createdAt: json['created_at'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'incident_id': incidentId,
+      'note': note,
+      'created_by': createdBy,
+      'created_at': createdAt,
+    };
+  }
 }

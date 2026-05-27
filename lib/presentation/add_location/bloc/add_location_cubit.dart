@@ -55,7 +55,11 @@ class AddLocationCubit extends Cubit<AddLocationState> {
 
     final response = await _dataRepository.addLocation(input, parkId: parkId);
     if (response.success) {
-      emit(state.copyWith(isSubmitting: false, isSuccess: true));
+      emit(state.copyWith(
+        isSubmitting: false,
+        isSuccess: true,
+        successMessage: response.message,
+      ));
       return true;
     }
 
@@ -83,6 +87,7 @@ class AddLocationState extends Equatable {
     this.isSubmitting = false,
     this.isSuccess = false,
     this.error,
+    this.successMessage,
   });
 
   const AddLocationState.initial() : this();
@@ -101,6 +106,7 @@ class AddLocationState extends Equatable {
   final bool isSubmitting;
   final bool isSuccess;
   final String? error;
+  final String? successMessage;
 
   AddLocationState copyWith({
     String? category,
@@ -117,6 +123,7 @@ class AddLocationState extends Equatable {
     bool? isSubmitting,
     bool? isSuccess,
     String? error,
+    String? successMessage,
   }) {
     return AddLocationState(
       category: category ?? this.category,
@@ -133,6 +140,7 @@ class AddLocationState extends Equatable {
       isSubmitting: isSubmitting ?? this.isSubmitting,
       isSuccess: isSuccess ?? this.isSuccess,
       error: error,
+      successMessage: successMessage ?? this.successMessage,
     );
   }
 
@@ -152,5 +160,6 @@ class AddLocationState extends Equatable {
         isSubmitting,
         isSuccess,
         error,
+        successMessage,
       ];
 }

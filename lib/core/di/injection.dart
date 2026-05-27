@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/constants/app_constants.dart';
 import '../../data/datasources/auth_remote_datasource.dart';
 import '../../data/datasources/data_remote_datasource.dart';
+import '../../data/datasources/local_database.dart';
 import '../../data/datasources/park_remote_datasource.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/data_repository.dart';
@@ -39,7 +40,10 @@ Future<void> configureDependencies() async {
       () => AuthRepository(getIt<AuthRemoteDataSource>()),
     )
     ..registerLazySingleton<DataRepository>(
-      () => DataRepository(getIt<DataRemoteDataSource>()),
+      () => DataRepository(
+        getIt<DataRemoteDataSource>(),
+        getIt<LocalDatabase>(),
+      ),
     )
     ..registerLazySingleton<ParkRepository>(
       () => ParkRepository(getIt<ParkRemoteDataSource>()),
@@ -50,6 +54,7 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton<ParkCubit>(
       () => ParkCubit(getIt<ParkRepository>()),
     )
+    ..registerLazySingleton<LocalDatabase>(LocalDatabase.new)
     ..registerLazySingleton<DashboardCubit>(
       () => DashboardCubit(getIt<DataRepository>()),
     )
@@ -62,13 +67,15 @@ Future<void> configureDependencies() async {
     ..registerFactory<AddLocationCubit>(
       () => AddLocationCubit(getIt<DataRepository>()),
     )
-    ..registerFactory<ProfileCubit>(
+    ..registerLazySingleton<ProfileCubit>(
       () => ProfileCubit(getIt<DataRepository>()),
     )
     ..registerFactory<ParkDetailCubit>(
       () => ParkDetailCubit(getIt<ParkRepository>()),
     )
     ..registerFactory<MapCubit>(MapCubit.new);
+
+  await getIt<LocalDatabase>().init();
 }
 
 SupabaseClient? _safeSupabaseClient() {

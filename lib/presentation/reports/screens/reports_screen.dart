@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/di/injection.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../data/datasources/mock_data.dart';
 import '../../../data/models/dashboard_models.dart';
 import '../../park/bloc/park_cubit.dart';
 import '../../shared/widgets/ranger_app_bar.dart';
@@ -30,22 +31,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
   void _load() {
     final parkId = getIt<ParkCubit>().state.selectedPark?.id;
     _cubit.loadIncidents(parkId: parkId);
-  }
-
-  void _showPlaceholderAction(String action) {
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(action),
-        content: Text('$action functionality coming soon.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -102,25 +87,52 @@ class _ReportsScreenState extends State<ReportsScreen> {
                             ],
                           ),
                         ),
+                        _StatusFilterBar(
+                          selectedFilter: state.filter,
+                          onFilterChanged: (filter) {
+                            _cubit.setFilter(filter);
+                          },
+                        ),
+                        const SizedBox(height: 12),
                         if (state.error != null)
                           Padding(
                             padding: const EdgeInsets.all(16),
                             child: Text(state.error!,
                                 style: const TextStyle(color: AppTheme.errorColor)),
                           ),
-                        ...state.incidents.map(
-                          (incident) => _IncidentCard(
-                            incident: incident,
-                            onUpdate: () => _showPlaceholderAction('Update Status'),
-                            onNote: () => _showPlaceholderAction('Add Note'),
-                            onEscalate: () => _showPlaceholderAction('Escalate'),
-                          ),
-                        ),
-                        if (state.incidents.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.all(32),
-                            child: Center(child: Text('No incidents reported')),
-                          ),
+                        (() {
+                          final filtered = state.filter == 'All'
+                              ? state.incidents
+                              : state.incidents
+                                  .where((i) => i.status == state.filter)
+                                  .toList();
+
+                          if (filtered.isEmpty) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 48, horizontal: 16),
+                              child: Center(
+                                child: Text(
+                                  'No matching incidents reported',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: filtered.map((incident) {
+                              return _IncidentCard(
+                                incident: incident,
+                                onTap: () => context.push('/add-report?id=${incident.id}'),
+                              );
+                            }).toList(),
+                          );
+                        })(),
                       ],
                     ),
                   ),
@@ -165,57 +177,185 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
-class _IncidentCard extends StatelessWidget {
-  const _IncidentCard({
-    required this.incident,
-    required this.onUpdate,
-    required this.onNote,
-    required this.onEscalate,
+class _StatusFilterBar extends StatelessWidget {
+  const _StatusFilterBar({
+    required this.selectedFilter,
+    required this.onFilterChanged,
   });
 
-  final IncidentModel incident;
-  final VoidCallback onUpdate;
-  final VoidCallback onNote;
-  final VoidCallback onEscalate;
+  final String selectedFilter;
+  final ValueChanged<String> onFilterChanged;
+
+  static const _filters = ['All', 'Reported', 'In Progress', 'Resolved'];
 
   @override
   Widget build(BuildContext context) {
+    return SizedBox(
+      height: 38,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _filters.length,
+        itemBuilder: (context, index) {
+          final filter = _filters[index];
+          final isSelected = selectedFilter == filter;
+
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              label: Text(
+                filter,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: isSelected ? Colors.white : AppTheme.primaryDark,
+                ),
+              ),
+              selected: isSelected,
+              selectedColor: AppTheme.primaryColor,
+              backgroundColor: AppTheme.surfaceColor,
+              onSelected: (selected) {
+                if (selected) {
+                  onFilterChanged(filter);
+                }
+              },
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(
+                  color: isSelected ? Colors.transparent : AppTheme.authBorder,
+                ),
+              ),
+              showCheckmark: false,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class StatusBadge extends StatelessWidget {
+  const StatusBadge({super.key, required this.status});
+
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    Color color;
+    Color textColor;
+    switch (status) {
+      case 'Reported':
+        color = const Color(0xFFEFF6FF);
+        textColor = const Color(0xFF1D4ED8);
+        break;
+      case 'In Progress':
+        color = const Color(0xFFFEF3C7);
+        textColor = const Color(0xFFD97706);
+        break;
+      case 'Resolved':
+        color = const Color(0xFFECFDF5);
+        textColor = const Color(0xFF047857);
+        break;
+      default:
+        color = Colors.grey.shade100;
+        textColor = Colors.grey.shade700;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        status,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: textColor,
+        ),
+      ),
+    );
+  }
+}
+
+class _IncidentCard extends StatelessWidget {
+  const _IncidentCard({
+    required this.incident,
+    required this.onTap,
+  });
+
+  final IncidentModel incident;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final timeAgo = MockData.getTimeAgo(incident.createdAt);
+    final hasLocation = incident.location != null && incident.location!.isNotEmpty;
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    incident.title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: AppTheme.authBorder),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            incident.title,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
+                    const SizedBox(height: 6),
+                    Text(
+                      incident.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                    ),
+                    if (hasLocation || timeAgo.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        '${hasLocation ? incident.location : 'Unknown Location'}${timeAgo.isNotEmpty ? ' • $timeAgo' : ''}',
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        StatusBadge(status: incident.status),
+                        const SizedBox(width: 8),
+                        SeverityBadge(severity: incident.severity),
+                      ],
+                    ),
+                  ],
                 ),
-                SeverityBadge(severity: incident.severity),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(incident.description),
-            if (incident.location != null)
-              Text('Location: ${incident.location}',
-                  style: TextStyle(color: Colors.grey.shade600)),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              children: [
-                OutlinedButton(onPressed: onUpdate, child: const Text('Update Status')),
-                OutlinedButton(onPressed: onNote, child: const Text('Add Note')),
-                OutlinedButton(onPressed: onEscalate, child: const Text('Escalate')),
-              ],
-            ),
-          ],
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.grey.shade400,
+                size: 24,
+              ),
+            ],
+          ),
         ),
       ),
     );

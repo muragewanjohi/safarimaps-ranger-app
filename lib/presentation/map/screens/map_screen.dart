@@ -1,21 +1,29 @@
 import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/di/injection.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../data/repositories/data_repository.dart';
+import '../../../data/services/location_service.dart';
 import '../../park/bloc/park_cubit.dart';
 import '../../shared/widgets/park_map_card.dart';
 import '../../shared/widgets/ranger_app_bar.dart';
-import '../../../data/repositories/data_repository.dart';
 
 class MapScreen extends StatefulWidget {
-  const MapScreen({super.key});
+  const MapScreen({
+    super.key,
+    this.navLat,
+    this.navLng,
+    this.navTitle,
+    this.navCategory,
+  });
+
+  final double? navLat;
+  final double? navLng;
+  final String? navTitle;
+  final String? navCategory;
 
   @override
   State<MapScreen> createState() => _MapScreenState();
@@ -25,6 +33,9 @@ class _MapScreenState extends State<MapScreen> {
   String _filter = 'All Locations';
   bool _showMap = true;
   List<MapLocationItem> _locations = [];
+
+  List<LatLng> _navigationTrail = [];
+  LatLng? _focusRegion;
 
   static const _filters = [
     'All Locations',
@@ -39,6 +50,50 @@ class _MapScreenState extends State<MapScreen> {
   void initState() {
     super.initState();
     _loadLocations();
+    if (widget.navLat != null && widget.navLng != null) {
+      _startInAppNavigation(widget.navLat!, widget.navLng!);
+    }
+  }
+
+  @override
+  void didUpdateWidget(MapScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.navLat != oldWidget.navLat || widget.navLng != oldWidget.navLng) {
+      if (widget.navLat != null && widget.navLng != null) {
+        _startInAppNavigation(widget.navLat!, widget.navLng!);
+      } else {
+        setState(() {
+          _navigationTrail = [];
+          _focusRegion = null;
+        });
+      }
+    }
+  }
+
+  Future<void> _startInAppNavigation(double destLat, double destLng) async {
+    final locationService = getIt<LocationService>();
+    final userPos = await locationService.getCurrentLocation();
+
+    if (userPos != null) {
+      setState(() {
+        _navigationTrail = [
+          LatLng(userPos.latitude, userPos.longitude),
+          LatLng(destLat, destLng),
+        ];
+        _focusRegion = LatLng(destLat, destLng);
+        _showMap = true;
+      });
+    } else {
+      // Default fallback coordinates if user location is disabled
+      setState(() {
+        _navigationTrail = [
+          const LatLng(-1.2921, 35.5739),
+          LatLng(destLat, destLng),
+        ];
+        _focusRegion = LatLng(destLat, destLng);
+        _showMap = true;
+      });
+    }
   }
 
   LatLng? _parseCoordinates(String coords) {
@@ -108,6 +163,7 @@ class _MapScreenState extends State<MapScreen> {
       }
     } catch (_) {}
 
+    if (!mounted) return;
     setState(() {
       _locations = allLoaded;
     });
@@ -121,15 +177,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _openNavigation(MapLocationItem item) async {
-    final url = Platform.isIOS
-        ? Uri.parse(
-            'http://maps.apple.com/?daddr=${item.lat},${item.lng}&dirflg=d')
-        : Uri.parse(
-            'google.navigation:q=${item.lat},${item.lng}&mode=d');
-
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url);
-    }
+    await _startInAppNavigation(item.lat, item.lng);
   }
 
   @override
@@ -180,6 +228,8 @@ class _MapScreenState extends State<MapScreen> {
               flex: 2,
               child: SafariMapView(
                 markers: markers,
+                trailCoordinates: _navigationTrail,
+                initialRegion: _focusRegion,
                 height: double.infinity,
               ),
             ),

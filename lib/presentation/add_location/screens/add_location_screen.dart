@@ -2,7 +2,7 @@ import 'dart:io' show File;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/di/injection.dart';
@@ -98,12 +98,13 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         );
 
     final parkId = getIt<ParkCubit>().state.selectedPark?.id;
-    final success =
-        await context.read<AddLocationCubit>().submit(parkId: parkId);
+    final cubit = context.read<AddLocationCubit>();
+    final success = await cubit.submit(parkId: parkId);
     if (success && mounted) {
       getIt<DashboardCubit>().loadDashboard(parkId: parkId);
+      final successMsg = cubit.state.successMessage ?? 'Location added successfully';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Location added successfully')),
+        SnackBar(content: Text(successMsg)),
       );
       context.pop();
     }

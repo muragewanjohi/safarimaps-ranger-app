@@ -1,10 +1,12 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/di/injection.dart';
 import '../../../data/models/dashboard_models.dart';
 import '../../../data/models/park_model.dart';
 import '../../../data/repositories/data_repository.dart';
 import '../../../data/repositories/park_repository.dart';
+import '../../home/bloc/dashboard_cubit.dart';
 
 class ProfileCubit extends Cubit<ProfileState> {
   ProfileCubit(this._dataRepository) : super(const ProfileState.initial());
@@ -32,8 +34,13 @@ class ProfileCubit extends Cubit<ProfileState> {
   void toggleLocationSharing(bool value) =>
       emit(state.copyWith(locationSharing: value));
 
-  void toggleOfflineMode(bool value) =>
-      emit(state.copyWith(offlineMode: value));
+  void toggleOfflineMode(bool value) {
+    emit(state.copyWith(offlineMode: value));
+    getIt<DashboardCubit>().updateOfflineStatus(isOffline: value);
+    if (!value) {
+      getIt<DashboardCubit>().syncPendingItems();
+    }
+  }
 
   void toggleAutoSync(bool value) => emit(state.copyWith(autoSync: value));
 }

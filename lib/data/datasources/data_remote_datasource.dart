@@ -583,4 +583,125 @@ class DataRemoteDataSource {
         return category;
     }
   }
+
+  Future<ApiResponse<IncidentModel>> updateIncident(IncidentModel incident) async {
+    if (useMockData) {
+      await MockData.delay();
+      return ApiResponse(success: true, data: incident);
+    }
+
+    try {
+      final user = _client!.auth.currentUser;
+      if (user == null) {
+        return const ApiResponse(success: false, error: 'User not authenticated');
+      }
+
+      final updateData = {
+        'title': incident.title,
+        'category': incident.category,
+        'severity': incident.severity,
+        'status': incident.status,
+        'description': incident.description,
+        'coordinates': incident.coordinates,
+        'tourists_affected': incident.touristsAffected ?? 0,
+        'operator': incident.tourOperator,
+        'transport': incident.transport,
+        'medical_condition': incident.medicalCondition,
+        'location': incident.location,
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+
+      final result = await _client
+          .from('incidents')
+          .update(updateData)
+          .eq('id', incident.id)
+          .select()
+          .single()
+          .timeout(const Duration(seconds: 15));
+
+      return ApiResponse(
+        success: true,
+        data: IncidentModel.fromJson(Map<String, dynamic>.from(result)),
+      );
+    } catch (e) {
+      return ApiResponse(success: false, error: e.toString());
+    }
+  }
+
+  Future<ApiResponse<List<IncidentNoteModel>>> getIncidentNotes(String incidentId) async {
+    if (useMockData) {
+      await MockData.delay();
+      return const ApiResponse(success: true, data: []);
+    }
+
+    try {
+      final data = await _client!
+          .from('incident_notes')
+          .select('*, profiles(name)')
+          .eq('incident_id', incidentId)
+          .order('created_at', ascending: true);
+
+      final notes = (data as List).map((e) {
+        final profile = e['profiles'] as Map?;
+        final createdByName = profile != null ? profile['name'] as String? : null;
+        final json = Map<String, dynamic>.from(e);
+        if (createdByName != null) {
+          json['created_by_name'] = createdByName;
+        }
+        return IncidentNoteModel.fromJson(json);
+      }).toList();
+
+      return ApiResponse(success: true, data: notes);
+    } catch (e) {
+      return ApiResponse(success: false, error: e.toString());
+    }
+  }
+
+  Future<ApiResponse<IncidentNoteModel>> addIncidentNote(String incidentId, String noteText) async {
+    if (useMockData) {
+      await MockData.delay();
+      return ApiResponse(
+        success: true,
+        data: IncidentNoteModel(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          incidentId: incidentId,
+          note: noteText,
+          createdBy: 'Sarah Johnson',
+          createdAt: DateTime.now().toIso8601String(),
+        ),
+      );
+    }
+
+    try {
+      final user = _client!.auth.currentUser;
+      if (user == null) {
+        return const ApiResponse(success: false, error: 'User not authenticated');
+      }
+
+      final result = await _client
+          .from('incident_notes')
+          .insert({
+            'incident_id': incidentId,
+            'note': noteText,
+            'created_by': user.id,
+          })
+          .select('*, profiles(name)')
+          .single()
+          .timeout(const Duration(seconds: 15));
+
+      final profile = result['profiles'] as Map?;
+      final createdByName = profile != null ? profile['name'] as String? : null;
+      final json = Map<String, dynamic>.from(result);
+      if (createdByName != null) {
+        json['created_by_name'] = createdByName;
+      }
+
+      return ApiResponse(
+        success: true,
+        data: IncidentNoteModel.fromJson(json),
+      );
+    } catch (e) {
+      return ApiResponse(success: false, error: e.toString());
+    }
+  }
 }

@@ -15,6 +15,7 @@ import '../../presentation/park/bloc/park_cubit.dart';
 import '../../presentation/park/screens/park_detail_screen.dart';
 import '../../presentation/profile/screens/profile_screen.dart';
 import '../../presentation/reports/bloc/incidents_cubit.dart';
+import '../../presentation/directions/screens/directions_screen.dart';
 import '../../presentation/reports/screens/add_report_screen.dart';
 import '../../presentation/reports/screens/reports_screen.dart';
 import '../../presentation/shell/main_shell.dart';
@@ -79,9 +80,24 @@ class AppRouter {
             ),
             GoRoute(
               path: '/map',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: MapScreen(),
-              ),
+              pageBuilder: (context, state) {
+                final latStr = state.uri.queryParameters['nav_lat'];
+                final lngStr = state.uri.queryParameters['nav_lng'];
+                final title = state.uri.queryParameters['nav_title'];
+                final category = state.uri.queryParameters['nav_category'];
+
+                final lat = latStr != null ? double.tryParse(latStr) : null;
+                final lng = lngStr != null ? double.tryParse(lngStr) : null;
+
+                return NoTransitionPage(
+                  child: MapScreen(
+                    navLat: lat,
+                    navLng: lng,
+                    navTitle: title,
+                    navCategory: category,
+                  ),
+                );
+              },
             ),
             GoRoute(
               path: '/reports',
@@ -98,11 +114,35 @@ class AppRouter {
           ],
         ),
         GoRoute(
+          path: '/directions',
+          builder: (context, state) {
+            final fromLat = double.tryParse(state.uri.queryParameters['from_lat'] ?? '');
+            final fromLng = double.tryParse(state.uri.queryParameters['from_lng'] ?? '');
+            final toLat = double.tryParse(state.uri.queryParameters['to_lat'] ?? '');
+            final toLng = double.tryParse(state.uri.queryParameters['to_lng'] ?? '');
+            
+            final toTitle = state.uri.queryParameters['to_title'];
+            final toCategory = state.uri.queryParameters['to_category'];
+
+            return DirectionsScreen(
+              fromLat: fromLat,
+              fromLng: fromLng,
+              toLat: toLat ?? 0.0,
+              toLng: toLng ?? 0.0,
+              toTitle: toTitle,
+              toCategory: toCategory,
+            );
+          },
+        ),
+        GoRoute(
           path: '/add-report',
-          builder: (context, state) => BlocProvider(
-            create: (_) => getIt<AddReportCubit>(),
-            child: const AddReportScreen(),
-          ),
+          builder: (context, state) {
+            final id = state.uri.queryParameters['id'];
+            return BlocProvider(
+              create: (_) => getIt<AddReportCubit>()..loadForEdit(id),
+              child: AddReportScreen(incidentId: id),
+            );
+          },
         ),
         GoRoute(
           path: '/add-location',
